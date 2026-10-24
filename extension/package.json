@@ -2,7 +2,7 @@
   "name": "pawprints",
   "displayName": "Pawprints",
   "description": "Version history of every file Claude Code touches, as a sidebar over the pawprints binary.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "elythion",
   "license": "MIT",
   "repository": {
