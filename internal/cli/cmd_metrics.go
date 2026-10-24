@@ -192,15 +192,156 @@ func (c *cli) printMetrics(rep metrics.Report) {
 }
 
 func (c *cli) cmdLimits(args []string) int {
-	if len(args) == 0 || args[0] != "record" {
+	if len(args) > 0 && args[0] == "record" {
+		return c.cmdLimitsRecord(args[1:])
+	}
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		return c.fail("usage: pawprints "+usages["limits"], 2)
 	}
+	if err := parseArgs(newFlags("limits"), args); err != nil {
+		return c.fail(err.Error(), 2)
+	}
+	now := time.Now()
+	out, err := metrics.Limits(now)
+	if err != nil {
+		return c.failErr(err)
+	}
+	if c.json {
+		for _, a := range out {
+			c.emit(a)
+		}
+		return 0
+	}
+	c.printLimits(out, now)
+	return 0
+}
+
+func (c *cli) printLimits(out []metrics.AccountLimits, now time.Time) {
+	fmt.Fprintln(c.out, ui.Title.Render(" limits ")+" "+ui.Dim.Render("usage limits per Claude account, from Whiskers' readings"))
+	if len(out) == 0 {
+		fmt.Fprintln(c.out)
+		fmt.Fprintln(c.out, ui.Dim.Render("  no accounts yet; limits are recorded while Whiskers runs in Claude Code"))
+		return
+	}
+	for _, a := range out {
+		name := a.Email
+		if name == "" {
+			name = "unknown account " + shortID(a.Account)
+		}
+		if a.Plan != "" {
+			name += ui.Dim.Render(" · " + a.Plan)
+		}
+		updated := ""
+		if t, err := time.Parse(time.RFC3339Nano, a.UpdatedAt); err == nil {
+			updated = ui.Dim.Render("updated " + agoText(now.Sub(t)))
+		}
+		fmt.Fprintf(c.out, "\n  %s  %s  %s\n", ui.Strong.Render(name), limitStatus(a, now), updated)
+		w := tabwriter.NewWriter(c.out, 0, 0, 2, ' ', 0)
+		for _, win := range a.Windows {
+			pct := fmt.Sprintf("%3.0f%%", win.Percent)
+			switch {
+			case win.Full:
+				pct = ui.Err.Render(pct)
+			case win.Percent >= 80:
+				pct = ui.Warn.Render(pct)
+			}
+			if win.Assumed {
+				pct += ui.Dim.Render(" (reset since)")
+			}
+			reset := ""
+			if t, err := time.Parse(time.RFC3339Nano, win.ResetsAt); err == nil {
+				reset = "resets " + clockLabel(t, now) + ui.Dim.Render(" (in "+untilText(t.Sub(now))+")")
+				if win.Projected {
+					reset += ui.Dim.Render(", projected")
+				}
+			}
+			pace := win.Pace
+			switch win.Pace {
+			case metrics.PaceTight:
+				t, _ := time.Parse(time.RFC3339Nano, win.FullAt)
+				pace = ui.Warn.Render(fmt.Sprintf("↗%.1f%%/h, full %s", win.PerHour, clockLabel(t, now)))
+			case metrics.PaceCalm:
+				pace = fmt.Sprintf("↗%.1f%%/h", win.PerHour)
+			case metrics.PaceFull:
+				pace = ui.Err.Render("full")
+			case metrics.PaceUnknown:
+				pace = ui.Dim.Render("pace unknown")
+			case metrics.PaceIdle:
+				pace = ui.Dim.Render("idle")
+			}
+			fmt.Fprintf(w, "    %s\t%s\t%s\t%s\n", ui.Dim.Render(windowName(win.Kind)), pct, reset, pace)
+		}
+		_ = w.Flush()
+	}
+}
+
+func limitStatus(a metrics.AccountLimits, now time.Time) string {
+	switch a.Status {
+	case metrics.StatusLimited:
+		if t, err := time.Parse(time.RFC3339Nano, a.UnlocksAt); err == nil {
+			return ui.Err.Render("limited until " + clockLabel(t, now) + " (in " + untilText(t.Sub(now)) + ")")
+		}
+		return ui.Err.Render("limited")
+	case metrics.StatusFilling:
+		t, _ := time.Parse(time.RFC3339Nano, a.FullAt)
+		return ui.Warn.Render("full " + clockLabel(t, now) + " at this pace")
+	case metrics.StatusAvailable:
+		return ui.Ok.Render("available")
+	}
+	return ui.Dim.Render("no limit data (needs Whiskers)")
+}
+
+func windowName(kind string) string {
+	switch kind {
+	case "five_hour":
+		return "5 hours"
+	case "seven_day":
+		return "week"
+	}
+	return strings.ReplaceAll(kind, "_", " ")
+}
+
+// clockLabel is a time of day, with the weekday within a week, else the date.
+func clockLabel(t, now time.Time) string {
+	t, now = t.Local(), now.Local()
+	switch {
+	case t.YearDay() == now.YearDay() && t.Year() == now.Year():
+		return t.Format("15:04")
+	case t.Sub(now) < 6*24*time.Hour && t.Sub(now) > -6*24*time.Hour:
+		return t.Format("Mon 15:04")
+	}
+	return t.Format("Jan 2 15:04")
+}
+
+// untilText is a duration as "2h 14m", "3d 4h", or "5m".
+func untilText(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	m := int(d.Round(time.Minute).Minutes())
+	switch {
+	case m >= 24*60:
+		return fmt.Sprintf("%dd %dh", m/(24*60), m%(24*60)/60)
+	case m >= 60:
+		return fmt.Sprintf("%dh %dm", m/60, m%60)
+	}
+	return fmt.Sprintf("%dm", m)
+}
+
+func agoText(d time.Duration) string {
+	if d < time.Minute {
+		return "just now"
+	}
+	return untilText(d) + " ago"
+}
+
+func (c *cli) cmdLimitsRecord(args []string) int {
 	fs := newFlags("limits record")
 	session := fs.String("session", "", "")
 	kind := fs.String("kind", "", "")
 	percent := fs.String("percent", "", "")
 	resets := fs.String("resets-at", "", "")
-	if err := parseArgs(fs, args[1:]); err != nil {
+	if err := parseArgs(fs, args); err != nil {
 		return c.fail(err.Error(), 2)
 	}
 	pct, err := strconv.ParseFloat(*percent, 64)

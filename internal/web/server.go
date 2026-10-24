@@ -148,6 +148,7 @@ func (s *Server) routes() http.Handler {
 	api("/api/info", s.info)
 	api("/api/metrics", s.metrics)
 	api("/api/accounts", s.accounts)
+	api("/api/limits", s.limits)
 	api("/api/turns", s.passthrough(func(q map[string]string) []string {
 		return []string{"turns", "--session", q["session"]}
 	}))
@@ -294,6 +295,17 @@ func (s *Server) accounts(w http.ResponseWriter, _ *http.Request) {
 		out = append(out, a)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Email < out[j].Email })
+	writeJSON(w, http.StatusOK, out)
+}
+
+// limits is every account's usage limits now: limited until when, the
+// resets, and when each window fills at the current pace.
+func (s *Server) limits(w http.ResponseWriter, _ *http.Request) {
+	out, err := metrics.Limits(time.Now())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 

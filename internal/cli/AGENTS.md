@@ -102,6 +102,16 @@ it bare from a tool call**; always pass a subcommand.
 // limits are per account and never summed; missing_history counts sessions from before metrics that
 // `pawprints usage backfill` can fill in.
 
+// pawprints limits --json             one line per Claude account: can it be used now, and until when not
+{"account":"3f2a...","email":"me@example.com","plan":"Max 5x","status":"limited","unlocks_at":"...","full_at":"","updated_at":"...",
+ "windows":[{"kind":"five_hour","percent":100,"resets_at":"...","full":true,"pace":"full","per_hour":0,"updated_at":"..."},
+  {"kind":"seven_day","percent":64,"resets_at":"...","full":false,"pace":"tight","per_hour":2.1,"full_at":"...","updated_at":"..."}]}
+// status: limited (a window is full; unlocks_at is when every full window has reset) | filling (full_at is when the
+// first window fills at its current pace) | available | unknown (no readings: Whiskers never ran on this account).
+// pace: full | tight (fills before it resets) | calm | idle (no recent reading) | unknown (too few readings).
+// assumed: true means the window reset since its last reading and is taken as 0; projected: true means a weekly
+// reset carried forward a week. Limited first in the listing.
+
 // pawprints limits record --session ID --kind five_hour|seven_day --percent N [--resets-at TIME] --json
 // Whiskers calls this as a usage-limit window moves; the account is taken from the session
 // pawprints usage backfill [--here] --json   rebuilds token history from the transcripts still on disk
@@ -176,6 +186,11 @@ pawprints export --session current > /tmp/session.patch
 ### Resolve a pawprints: reference the user pasted
 ```
 pawprints show 01JB4X9M --json
+```
+
+### Which account can I use, and when does a limited one unlock?
+```
+pawprints limits --json
 ```
 
 ### How much did this session spend, and when?

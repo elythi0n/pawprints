@@ -233,6 +233,79 @@ export function limitChart(el, lines, opts) {
   });
 }
 
+// unlockTimeline looks forward from now: one lane per account, a track per
+// usage-limit window. A full window is solid until it resets, a window that
+// fills at its pace is striped from then until its reset, and every reset is
+// a tick. Each lane's label sits above its tracks so narrow screens keep the
+// whole width for time.
+export function unlockTimeline(el, lanes, opts) {
+  if (!lanes.length) {
+    empty(el, opts.emptyText);
+    return;
+  }
+  const w = Math.max(280, el.clientWidth || 600);
+  const m = { l: 2, r: 12, t: 22 };
+  const iw = w - m.l - m.r;
+  const trackH = 12, trackGap = 6, labelH = 18, laneGap = 14;
+  const from = opts.from.getTime(), to = opts.to.getTime();
+  const span = Math.max(1, to - from);
+  const x = t => m.l + (Math.max(from, Math.min(to, t)) - from) / span * iw;
+  const laneH = lane => labelH + lane.tracks.length * (trackH + trackGap);
+  const h = m.t + lanes.reduce((sum, lane) => sum + laneH(lane) + laneGap, 0);
+  const id = `stripe-${Math.random().toString(36).slice(2, 8)}`;
+  let s = `<defs><pattern id="${id}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" class="ut-fill-soft"/><rect width="3" height="6" class="ut-stripe"/></pattern></defs>`;
+  opts.ticks.forEach(t => {
+    const tx = x(t.getTime());
+    if (tx < m.l + 34) return;
+    s += `<line class="gridline" x1="${tx}" x2="${tx}" y1="${m.t - 4}" y2="${h - laneGap / 2}"/>`;
+    s += `<text class="axis" x="${tx}" y="${m.t - 9}" text-anchor="${tx < m.l + 20 ? 'start' : tx > w - m.r - 20 ? 'end' : 'middle'}">${esc(opts.label(t))}</text>`;
+  });
+  let y = m.t;
+  lanes.forEach(lane => {
+    s += `<text class="ut-label" x="${m.l + 8}" y="${y + 12}">${esc(lane.label)}<tspan class="ut-sub" dx="8">${esc(lane.sub || '')}</tspan></text>`;
+    y += labelH;
+    lane.tracks.forEach(tr => {
+      const tip = esc(tr.tip || '');
+      s += `<rect class="ut-track" x="${m.l}" y="${y}" width="${iw}" height="${trackH}" rx="3" data-tip="${tip}"/>`;
+      if (tr.blockedUntil) {
+        const x2 = x(tr.blockedUntil.getTime());
+        s += `<rect class="ut-blocked" x="${m.l}" y="${y}" width="${Math.max(3, x2 - m.l)}" height="${trackH}" rx="3" data-tip="${tip}"/>`;
+      } else if (tr.fullAt) {
+        const x1 = x(tr.fullAt.getTime()), x2 = tr.resetAt ? x(tr.resetAt.getTime()) : m.l + iw;
+        if (x2 > x1) s += `<rect x="${x1}" y="${y}" width="${Math.max(3, x2 - x1)}" height="${trackH}" rx="3" fill="url(#${id})" class="ut-predicted" data-tip="${tip}"/>`;
+      }
+      if (tr.resetAt && tr.resetAt.getTime() <= to) {
+        const rx = x(tr.resetAt.getTime());
+        s += `<line class="ut-reset" x1="${rx}" x2="${rx}" y1="${y - 3}" y2="${y + trackH + 3}"/>`;
+      } else if (tr.resetAt && tr.later) {
+        // A reset past the edge still says when it comes.
+        s += `<text class="ut-later" x="${m.l + iw - 4}" y="${y + trackH - 2.5}" text-anchor="end" pointer-events="none">${esc(tr.later)} →</text>`;
+      }
+      s += `<text class="ut-kind${tr.blockedUntil ? ' on' : ''}" x="${m.l + 6}" y="${y + trackH - 2.5}" pointer-events="none">${esc(tr.title)}</text>`;
+      y += trackH + trackGap;
+    });
+    y += laneGap;
+  });
+  s += `<line class="ut-now" x1="${m.l}" x2="${m.l}" y1="${m.t - 4}" y2="${h - laneGap / 2}"/>`;
+  s += `<text class="ut-now-label" x="${m.l}" y="${m.t - 9}">now</text>`;
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" height="${h}" role="img" aria-label="${esc(opts.aria || 'When each account unlocks')}">${s}</svg>`;
+  const svg = el.querySelector('svg');
+  svg.addEventListener('pointermove', ev => {
+    const target = ev.target.closest('[data-tip]');
+    const t = tip();
+    if (!target || !target.dataset.tip) { t.classList.remove('show'); return; }
+    t.innerHTML = target.dataset.tip;
+    t.classList.add('show');
+    const tw = t.offsetWidth, th = t.offsetHeight;
+    let left = ev.clientX + 14, top = ev.clientY - th - 12;
+    if (left + tw > window.innerWidth - 12) left = ev.clientX - tw - 14;
+    if (top < 8) top = ev.clientY + 16;
+    t.style.left = `${Math.max(8, left)}px`;
+    t.style.top = `${top}px`;
+  });
+  svg.addEventListener('pointerleave', () => tip().classList.remove('show'));
+}
+
 // spark is a small inline trend without axes.
 export function spark(values, cls = '') {
   const w = 90, h = 26;

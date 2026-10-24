@@ -202,3 +202,26 @@ func TestMetricsPreviousPeriod(t *testing.T) {
 		t.Fatalf("and spans a day: %v", d)
 	}
 }
+
+func TestLimitsEndpoint(t *testing.T) {
+	s, _, _ := newServer(t, func([]string) ([]byte, int) { return nil, 0 })
+	w := do(t, s, "GET", "/api/limits", "127.0.0.1:7878", s.Token, "")
+	if w.Code != http.StatusOK || strings.TrimSpace(w.Body.String()) != "[]" {
+		t.Fatalf("no readings is an empty list: %d %s", w.Code, w.Body)
+	}
+	resets := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	if err := store.AppendLimit(store.LimitReading{At: store.Now(time.Now()), Account: "a", Kind: "five_hour", Percent: 100, ResetsAt: resets}); err != nil {
+		t.Fatal(err)
+	}
+	w = do(t, s, "GET", "/api/limits", "127.0.0.1:7878", s.Token, "")
+	var rows []struct {
+		Status    string `json:"status"`
+		UnlocksAt string `json:"unlocks_at"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &rows); err != nil || len(rows) != 1 || rows[0].Status != "limited" || rows[0].UnlocksAt != resets {
+		t.Fatalf("one limited account: %v %s", err, w.Body)
+	}
+	if w := do(t, s, "GET", "/api/limits", "127.0.0.1:7878", "wrong", ""); w.Code != http.StatusUnauthorized {
+		t.Fatalf("guarded like the rest: %d", w.Code)
+	}
+}

@@ -1,8 +1,8 @@
-// The Pawprints page: Overview, Projects, Sessions, and Files over the data
+// The Pawprints page: Overview, Projects, Sessions, Files, and Accounts over the data
 // `pawprints ui` serves. Filters live in the browser; changes Claude makes
 // arrive over server-sent events and refresh whatever is on screen.
 
-import { esc, short, tokenChart, editsChart, limitChart, spark } from './charts.js';
+import { esc, short, tokenChart, editsChart, limitChart, unlockTimeline, spark } from './charts.js';
 
 const params = new URLSearchParams(location.search);
 const TOKEN = params.get('t') || '';
@@ -14,7 +14,7 @@ const RANGES = {
   '7d': { label: 'the last 7 days' },
   '30d': { label: 'the last 30 days' },
 };
-const VIEWS = ['overview', 'projects', 'sessions', 'files'];
+const VIEWS = ['overview', 'projects', 'sessions', 'files', 'accounts'];
 const SERIES = ['var(--paw)', 'var(--teal)', 'var(--cache)', 'var(--warn)', 'var(--add)', 'var(--del)'];
 
 const app = document.getElementById('app');
@@ -57,6 +57,17 @@ function when(iso) {
   const y = new Date(today); y.setDate(today.getDate() - 1);
   if (d.toDateString() === y.toDateString()) return `Yesterday ${hm(d)}`;
   return `${md(d)} ${hm(d)}`;
+}
+
+// "Today · Fri Oct 24", "Yesterday · Thu Oct 23", or "Wed Oct 22", with the
+// year when it is not this one.
+function dayLabel(d) {
+  const today = new Date();
+  const y = new Date(today); y.setDate(today.getDate() - 1);
+  const date = `${DAYS[d.getDay()]} ${md(d)}${d.getFullYear() === today.getFullYear() ? '' : ` ${d.getFullYear()}`}`;
+  if (d.toDateString() === today.toDateString()) return `Today · ${date}`;
+  if (d.toDateString() === y.toDateString()) return `Yesterday · ${date}`;
+  return date;
 }
 
 function ago(iso) {
@@ -152,6 +163,9 @@ const state = {
   fileSort: ['edits', 'lines', 'recent'].includes(remembered('fileSort')) ? remembered('fileSort') : 'edits',
   showOutsideFiles: false,
   prev: null,
+  limits: null,
+  limitsError: '',
+  acctSpan: remembered('acctSpan') === '7d' ? '7d' : '24h',
 };
 
 // A session or file named in the link opens with the page.
@@ -253,6 +267,10 @@ async function loadAccounts() {
   if (state.account && !accountInfo(state.account)) state.account = '';
 }
 
+async function loadLimits() {
+  try { state.limits = await api('/api/limits'); state.limitsError = ''; } catch (err) { state.limitsError = err.message; }
+}
+
 async function loadSession() {
   const s = state.session;
   if (!s) { state.sess = null; return; }
@@ -299,7 +317,7 @@ async function loadDiff() {
 }
 
 async function refreshAll() {
-  await Promise.all([loadMetrics(), loadAccounts()]);
+  await Promise.all([loadMetrics(), loadAccounts(), loadLimits()]);
   if (state.view === 'sessions') {
     const list = sessionList();
     if (state.session && !list.find(s => s.id === state.session.id && s.project_id === state.session.project_id)) {
@@ -540,7 +558,7 @@ function overview() {
       <div class="stat"><span class="label">Cache reads</span><span class="v num">${short(t.tokens.cache_read)}</span><span class="n">cheap, shown apart</span>${delta(t.tokens.cache_read, p => p.tokens.cache_read)}</div>
       <div class="stat"><span class="label">Peak</span><span class="v num">${short(t.peak_per_minute)}<small>/min</small></span><span class="n">${t.peak_at ? `${esc(when(t.peak_at))}${t.peak_session ? ` · ${esc(t.peak_session)}` : ''}` : 'no spending yet'}</span></div>
       <div class="stat"><span class="label">Lines</span><span class="v num"><span class="add">+${short(t.lines_added)}</span> <span class="del">−${short(t.lines_removed)}</span></span><span class="n">${plural(t.files, 'file', 'files')} touched</span>${delta(t.lines_added + t.lines_removed, p => p.lines_added + p.lines_removed)}</div>
-      ${fullest ? `<div class="stat"><span class="label">${esc(fullest.title)}</span><span class="v num">${Math.round(fullest.latest)}%</span><span class="n">${limits.length > 1 ? `fullest: ${esc(fullest.label)}` : fullest.resets_at ? `resets ${esc(when(fullest.resets_at))}` : 'used'}</span></div>`
+      ${fullest ? `<div class="stat link" data-go="accounts" tabindex="0" role="link" title="Open Accounts: when each account unlocks"><span class="label">${esc(fullest.title)}</span><span class="v num">${Math.round(fullest.latest)}%</span><span class="n">${limits.length > 1 ? `fullest: ${esc(fullest.label)}` : fullest.resets_at ? `resets ${esc(when(fullest.resets_at))}` : 'used'}</span></div>`
         : `<div class="stat"><span class="label">Sessions</span><span class="v num">${t.sessions}</span><span class="n">${t.live_sessions} running now</span>${delta(t.sessions, p => p.sessions)}</div>`}
       <div class="stat" title="What these tokens would cost at Anthropic's API prices. On a subscription you don't pay this; it shows what the plan is worth."><span class="label">API cost</span><span class="v num">${money(t.api_cost)}</span><span class="n">${t.api_cost_complete ? 'if paid at API prices' : 'some models have no price'}</span>${delta(t.api_cost, p => p.api_cost)}</div>
     </section>
@@ -846,13 +864,20 @@ function promptsPanel(row, s) {
     byTurn.get(ev.turn).push(ev);
   });
   if (!turns.length) return '<section class="panel"><p class="empty">This session has no recorded prompts.</p></section>';
+  // A divider starts each day, so a session that runs past midnight or is
+  // picked up again days later reads in order. A session of only today's
+  // prompts needs none.
+  const day = t => new Date(t.at).toDateString();
+  const dividers = turns.some(t => day(t) !== day(turns[0])) || day(turns[0]) !== new Date().toDateString();
   return `<section class="panel">
     <div class="panel-head"><h2>Prompts</h2><span class="sub">newest first · ${plural(turns.length, 'prompt', 'prompts')}</span></div>
-    <div class="turns">${turns.map(t => {
+    <div class="turns">${turns.map((t, k) => {
+      const divider = dividers && (k === 0 || day(t) !== day(turns[k - 1]))
+        ? `<div class="day" role="separator">${esc(dayLabel(new Date(t.at)))}</div>` : '';
       const open = state.openTurn === t.id;
       const files = groupFiles(byTurn.get(t.id) || [], row.agent_names || {});
       const claudeFiles = files.filter(f => f.group !== 'outside');
-      return `<div class="turn" data-open="${open}">
+      return `${divider}<div class="turn" data-open="${open}">
         <button type="button" data-turn="${esc(t.id)}" aria-expanded="${open}">
           ${ICONS.right}
           <span class="at">${esc(hm(new Date(t.at)))}</span>
@@ -1221,6 +1246,190 @@ function fileRows(m) {
   return { rows: showOutside ? all : all.filter(f => !f.path.startsWith('/')), outside, showOutside, q };
 }
 
+// ---------- Accounts ----------
+
+const WINDOW_TITLES = { five_hour: '5 hours', seven_day: 'Week' };
+const windowTitle = k => WINDOW_TITLES[k] || k.replace(/_/g, ' ');
+const parseTime = iso => { const d = iso ? new Date(iso) : null; return d && !Number.isNaN(d.getTime()) ? d : null; };
+
+// untilText is a wait as "2h 14m", "3d 4h", or "5m".
+function untilText(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m >= 1440) return `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h`;
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
+  return `${m}m`;
+}
+
+// clockLabel is a time of day, with the weekday within the coming week,
+// else the date.
+function clockLabel(d) {
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return hm(d);
+  if (Math.abs(d - now) < 6 * 86400000) return `${DAYS[d.getDay()]} ${hm(d)}`;
+  return `${md(d)} ${hm(d)}`;
+}
+
+const acctLabel = a => a.email || `Unknown account ${(a.account || '').slice(0, 8)}`;
+
+function statusLine(a) {
+  const now = Date.now();
+  const unlocks = parseTime(a.unlocks_at), full = parseTime(a.full_at);
+  switch (a.status) {
+    case 'limited': return `<span class="ast limited">⛔ Limited${unlocks ? ` until <b>${esc(clockLabel(unlocks))}</b> · in ${esc(untilText(unlocks - now))}` : ''}</span>`;
+    case 'filling': return full ? `<span class="ast filling">⚠️ Full at <b>${esc(clockLabel(full))}</b> at this pace · in ${esc(untilText(full - now))}</span>` : '<span class="ast filling">⚠️ Filling</span>';
+    case 'available': return '<span class="ast available">✅ Available</span>';
+  }
+  return '<span class="ast unknown">No limit data yet. Whiskers records it while Claude runs on this account.</span>';
+}
+
+function windowRow(w) {
+  const now = Date.now();
+  const reset = parseTime(w.resets_at), full = parseTime(w.full_at);
+  const level = w.full ? 'full' : w.percent >= 80 ? 'high' : '';
+  const resetText = reset
+    ? `resets ${esc(clockLabel(reset))} · in ${esc(untilText(reset - now))}${w.projected ? ' <span class="guess" title="No reading since the last weekly reset; carried forward a week">projected</span>' : ''}`
+    : w.assumed ? 'resets with the next message' : 'reset time unknown';
+  const pace = ({
+    full: () => '<span class="pace full">full</span>',
+    tight: () => `<span class="pace tight">↗ ${w.per_hour.toFixed(1)}%/h · full ${esc(clockLabel(full))}</span>`,
+    calm: () => `<span class="pace">↗ ${w.per_hour.toFixed(1)}%/h</span>`,
+    idle: () => '<span class="pace dim" title="No new reading for a while, so nobody is spending on this window">idle</span>',
+    unknown: () => '<span class="pace dim" title="A pace needs a few readings over at least 15 minutes (3 hours for the week)">pace unknown</span>',
+  }[w.pace] || (() => ''))();
+  return `<div class="win">
+    <span class="wk">${esc(windowTitle(w.kind))}</span>
+    <span class="wbar ${level}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(w.percent)}" aria-label="${esc(windowTitle(w.kind))} used"><i style="width:${Math.min(100, Math.max(0, w.percent))}%"></i></span>
+    <span class="wpct num${w.assumed ? ' guess' : ''}"${w.assumed ? ' title="The window reset since the last reading, so it is assumed empty"' : ''}>${Math.round(w.percent)}%</span>
+    <span class="wmeta"><span>${resetText}</span>${pace}</span>
+  </div>`;
+}
+
+function accountCard(a) {
+  const updated = a.updated_at ? `updated ${esc(ago(a.updated_at))}` : '';
+  return `<section class="panel acard ${esc(a.status)}">
+    <div class="panel-head">
+      <div><h2>${esc(acctLabel(a))} ${planBadge(a.plan)}</h2><span class="sub">${updated}</span></div>
+    </div>
+    <p class="astatus">${statusLine(a)}</p>
+    ${a.windows.length ? `<div class="wins">${a.windows.map(windowRow).join('')}</div>` : ''}
+  </section>`;
+}
+
+// bestAccount is the available account with the most room in its five
+// hours, when there is a choice to make.
+function bestAccount(list) {
+  const withData = list.filter(a => a.status !== 'unknown');
+  if (withData.length < 2) return null;
+  const room = a => { const w = a.windows.find(x => x.kind === 'five_hour'); return w ? 100 - w.percent : 100; };
+  return list.filter(a => a.status === 'available').sort((x, y) => room(y) - room(x))[0] || null;
+}
+
+function timelineLanes(list, to) {
+  return list.filter(a => a.windows.length).map(a => ({
+    label: acctLabel(a),
+    sub: a.plan || '',
+    tracks: a.windows.map(w => {
+      const reset = parseTime(w.resets_at), full = parseTime(w.full_at);
+      const rows = [
+        `<div class="r"><span>Used</span><b>${Math.round(w.percent)}%${w.assumed ? ' (assumed)' : ''}</b></div>`,
+        reset ? `<div class="r"><span>Resets</span><b>${esc(clockLabel(reset))} · in ${esc(untilText(reset - Date.now()))}</b></div>` : '',
+        w.pace === 'tight' ? `<div class="r"><span>Full at this pace</span><b>${esc(clockLabel(full))}</b></div>` : '',
+        w.per_hour ? `<div class="r"><span>Pace</span><b>${w.per_hour.toFixed(1)}%/h</b></div>` : '',
+      ].join('');
+      return {
+        kind: w.kind,
+        title: windowTitle(w.kind),
+        blockedUntil: w.full ? (reset || to) : null,
+        fullAt: w.pace === 'tight' ? full : null,
+        resetAt: reset,
+        later: reset && reset > to ? `resets ${clockLabel(reset)}` : '',
+        tip: `<div class="t">${esc(acctLabel(a))} · ${esc(windowTitle(w.kind))}</div>${rows}`,
+      };
+    }),
+  }));
+}
+
+function timelineTicks(from, to) {
+  const ticks = [];
+  const d = new Date(from);
+  if (state.acctSpan === '7d') {
+    d.setHours(0, 0, 0, 0);
+    for (d.setDate(d.getDate() + 1); d < to; d.setDate(d.getDate() + 1)) ticks.push(new Date(d));
+  } else {
+    d.setMinutes(0, 0, 0);
+    for (d.setHours(d.getHours() + 1); d < to; d.setHours(d.getHours() + 1)) if (d.getHours() % 3 === 0) ticks.push(new Date(d));
+  }
+  return ticks;
+}
+
+function accounts() {
+  if (!state.limits) {
+    app.innerHTML = `${head('Accounts', 'Usage limits per Claude account.', { projects: false })}${banners()}${state.limitsError ? `<div class="banner err" role="alert"><span>${esc(state.limitsError)}</span><button type="button" class="btn" data-act="retry">Try again</button></div>` : '<p class="loading">Loading…</p>'}`;
+    return;
+  }
+  const list = state.account ? state.limits.filter(a => a.account === state.account) : state.limits;
+  const best = bestAccount(list);
+  const from = new Date(), to = new Date(from.getTime() + (state.acctSpan === '7d' ? 7 : 1) * 86400000);
+  const lanes = timelineLanes(list, to);
+  const m = state.m;
+  const history = kind => (m?.limits || []).filter(l => l.kind === kind).map((l, i, all) => ({
+    ...l,
+    label: l.email ? `${l.email}${l.plan ? ` · ${l.plan}` : ''}` : 'This account',
+    color: all.length > 1 ? SERIES[i % SERIES.length] : 'var(--teal)',
+  }));
+  const range = RANGES[state.range].label;
+
+  app.innerHTML = `
+    ${head('Accounts', 'Which Claude account you can use now, when a limited one unlocks, and when each fills at its current pace. From the readings Whiskers sends; limits belong to the account, so the project filter does not apply.', { projects: false })}
+    ${banners()}
+    ${best ? `<div class="banner best"><span>Best right now: <b>${esc(acctLabel(best))}</b>, ${Math.round(best.windows.find(w => w.kind === 'five_hour')?.percent ?? 0)}% of its 5 hours used.</span></div>` : ''}
+    ${list.length ? `<div class="acards">${list.map(accountCard).join('')}</div>`
+      : `<section class="panel welcome"><h2>No accounts yet</h2><p>Accounts appear once Claude Code runs with Pawprints installed. Usage limits come from <a href="https://github.com/elythi0n/whiskers">Whiskers</a>, which sends a reading whenever a limit moves.</p></section>`}
+    <section class="panel" aria-labelledby="h-unlock">
+      <div class="panel-head">
+        <div><h2 id="h-unlock">When each account unlocks</h2><span class="sub">from now · solid is limited, striped is when it fills at this pace, ticks are resets</span></div>
+        <div class="seg" role="group" aria-label="Look ahead">
+          <button type="button" data-acct-span="24h" aria-pressed="${state.acctSpan === '24h'}">24h</button>
+          <button type="button" data-acct-span="7d" aria-pressed="${state.acctSpan === '7d'}">7d</button>
+        </div>
+      </div>
+      <div class="chart" id="c-unlock"></div>
+    </section>
+    <div class="grid-even">
+      <section class="panel" aria-labelledby="h-hist5">
+        <div class="panel-head"><div><h2 id="h-hist5">5-hour limit</h2><span class="sub">${esc(range)} · one line per account</span></div></div>
+        <div class="chart" id="c-hist5"></div>
+      </section>
+      <section class="panel" aria-labelledby="h-hist7">
+        <div class="panel-head"><div><h2 id="h-hist7">Weekly limit</h2><span class="sub">${esc(range)} · one line per account</span></div></div>
+        <div class="chart" id="c-hist7"></div>
+      </section>
+    </div>`;
+
+  unlockTimeline(document.getElementById('c-unlock'), lanes, {
+    from, to, ticks: timelineTicks(from, to),
+    label: d => (state.acctSpan === '7d' ? `${DAYS[d.getDay()]} ${md(d)}` : hm(d)),
+    emptyText: 'Nothing to show yet: no account has sent a limit reading.',
+  });
+  if (m) {
+    const axis = points(m.timeline).map(p => p.at);
+    [['c-hist5', 'five_hour'], ['c-hist7', 'seven_day']].forEach(([el, kind]) => limitChart(document.getElementById(el), history(kind), {
+      from: new Date(m.range.from), to: new Date(m.range.to), axis, label: axisLabel,
+      emptyText: `No ${windowTitle(kind).toLowerCase()} readings in ${range}.`,
+    }));
+  }
+}
+
+// Countdowns move every minute without a refetch; once a reset or unlock
+// time has passed, the numbers behind it change, so fetch them again.
+setInterval(async () => {
+  if (state.view !== 'accounts' || !state.limits || state.confirm || menuOpen() || reading()) return;
+  const now = Date.now();
+  const passed = state.limits.some(a => [a.unlocks_at, a.full_at, ...a.windows.map(w => w.resets_at)].some(iso => { const d = parseTime(iso); return d && d <= now; }));
+  if (passed) await loadLimits();
+  render();
+}, 60000);
+
 // ---------- Rendering and events ----------
 
 function render() {
@@ -1237,8 +1446,8 @@ function render() {
   const active = document.activeElement;
   const focusId = active && active.id && app.contains(active) ? active.id : '';
   const caret = focusId && typeof active.selectionStart === 'number' ? active.selectionStart : null;
-  ({ overview, projects, sessions, files })[state.view]();
-  app.insertAdjacentHTML('beforeend', `<footer class="keys">Keys: <kbd>1</kbd>–<kbd>4</kbd> screens · <kbd>/</kbd> search · <kbd>[</kbd> <kbd>]</kbd> time range · <kbd>Esc</kbd> close</footer>`);
+  ({ overview, projects, sessions, files, accounts })[state.view]();
+  app.insertAdjacentHTML('beforeend', `<footer class="keys">Keys: <kbd>1</kbd>–<kbd>5</kbd> screens · <kbd>/</kbd> search · <kbd>[</kbd> <kbd>]</kbd> time range · <kbd>Esc</kbd> close</footer>`);
   window.scrollTo({ top: scrollY });
   if (focusId) {
     const el = document.getElementById(focusId);
@@ -1337,6 +1546,10 @@ async function activate(ev) {
   }
   const setR = t.closest('[data-set-range]');
   if (setR) { setRange(setR.dataset.setRange); return; }
+  const go = t.closest('[data-go]');
+  if (go) { pushNext = true; navigate(go.dataset.go); return; }
+  const span = t.closest('[data-acct-span]');
+  if (span) { state.acctSpan = span.dataset.acctSpan; remember('acctSpan', state.acctSpan); render(); return; }
   const openSess = t.closest('[data-open-session]');
   if (openSess) { openSessionById(openSess.dataset.openSession); return; }
   const pickSess = t.closest('[data-pick-session]');
@@ -1495,7 +1708,7 @@ document.addEventListener('click', ev => {
 });
 
 // Esc closes a confirmation, then the drawer. Keys anywhere outside a text
-// field: 1–4 for the screens, / to search, [ and ] for a shorter or longer
+// field: 1–5 for the screens, / to search, [ and ] for a shorter or longer
 // time range.
 document.addEventListener('keydown', ev => {
   if (ev.defaultPrevented || ev.ctrlKey || ev.metaKey || ev.altKey) return;
@@ -1505,7 +1718,7 @@ document.addEventListener('keydown', ev => {
   if (state.confirm || drawerOpen()) return;
   const t = ev.target;
   if (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
-  if (/^[1-4]$/.test(ev.key)) {
+  if (/^[1-5]$/.test(ev.key)) {
     ev.preventDefault();
     navigate(VIEWS[Number(ev.key) - 1]);
     return;

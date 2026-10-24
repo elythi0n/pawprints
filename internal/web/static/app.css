@@ -166,7 +166,7 @@ button { font: inherit; color: inherit; }
   .tabs { order: 4; flex-basis: 100%; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; margin-inline: -4px; }
   .right { margin-left: auto; }
 }
-@media (max-width: 520px) { .live span { display: none; } .tabs a .icon { display: none; } }
+@media (max-width: 520px) { .live span { display: none; } .tabs a .icon { display: none; } .tabs a { padding-inline: 8px; } }
 
 /* Page */
 main { padding-block: 28px 80px; display: grid; gap: 20px; }
@@ -306,6 +306,9 @@ td.r, th.r { text-align: right; }
 .turns { display: grid; }
 .turn { border-top: 1px solid var(--line); }
 .turn:first-child { border-top: 0; }
+.turns > .day { font: 500 0.66rem/1.2 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 14px 4px 6px; border-top: 1px solid var(--line); }
+.turns > .day:first-child { padding-top: 2px; border-top: 0; }
+.turns > .day + .turn { border-top: 0; }
 .turn > button {
   width: 100%; display: grid; grid-template-columns: 22px 54px minmax(0, 1fr) auto; gap: 10px; align-items: center;
   border: 0; background: transparent; text-align: left; padding: 11px 4px; cursor: pointer;
@@ -477,3 +480,47 @@ a.btn { text-decoration: none; }
 footer.keys { color: var(--muted); font-size: 0.76rem; padding-top: 4px; }
 footer.keys kbd { font: 500 0.72rem/1 var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 2px 5px; background: var(--surface); color: var(--ink); }
 @media (hover: none) { footer.keys { display: none; } }
+
+/* Accounts */
+.stat.link { cursor: pointer; }
+.stat.link:hover .label, .stat.link:focus-visible .label { color: var(--accent); }
+.banner.best { border-color: color-mix(in srgb, var(--add) 35%, var(--line)); background: var(--add-soft); }
+.acards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 20px; }
+.acard { border-left: 4px solid var(--line); }
+.acard.limited { border-left-color: var(--del); }
+.acard.filling { border-left-color: var(--warn); }
+.acard.available { border-left-color: var(--add); }
+.acard h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.astatus { margin: 0 0 12px; font-size: 0.92rem; }
+.ast b { font-weight: 600; }
+.ast.limited { color: var(--del); }
+.ast.filling { color: var(--warn); }
+.ast.available { color: var(--add); }
+.ast.unknown { color: var(--muted); }
+.wins { display: grid; gap: 12px; }
+.win { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 3rem; grid-template-areas: "k bar pct" ". meta meta"; align-items: center; column-gap: 10px; row-gap: 4px; }
+.win .wk { grid-area: k; font: 500 0.72rem/1.2 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.wbar { grid-area: bar; height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; }
+.wbar i { display: block; height: 100%; background: var(--teal); border-radius: 4px; }
+.wbar.high i { background: var(--warn); }
+.wbar.full i { background: var(--del); }
+.wpct { grid-area: pct; text-align: right; font-weight: 600; }
+.wmeta { grid-area: meta; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.pace { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ink); }
+.pace.tight { color: var(--warn); }
+.pace.full { color: var(--del); }
+.pace.dim { color: var(--muted); }
+.guess { color: var(--muted); font-style: italic; }
+.chart .ut-track { fill: var(--grid); }
+.chart .ut-blocked { fill: var(--del); }
+.chart .ut-fill-soft { fill: var(--warn-soft); }
+.chart .ut-stripe { fill: var(--warn); }
+.chart .ut-predicted { stroke: var(--warn); stroke-width: 1; }
+.chart .ut-reset { stroke: var(--ink); stroke-width: 2; }
+.chart .ut-now { stroke: var(--accent); stroke-width: 2; }
+.chart .ut-label { fill: var(--ink); font: 600 12px var(--font-body); }
+.chart .ut-sub { fill: var(--muted); font: 500 10.5px var(--font-mono); }
+.chart .ut-kind { fill: var(--ink); font: 500 9px var(--font-mono); opacity: 0.75; }
+.chart .ut-kind.on { fill: var(--surface); opacity: 1; }
+.chart .ut-later { fill: var(--muted); font: 500 9.5px var(--font-mono); }
+.chart .ut-now-label { fill: var(--accent); font: 600 10.5px var(--font-mono); }

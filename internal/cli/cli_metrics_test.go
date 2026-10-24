@@ -59,6 +59,37 @@ func TestLimitsRecord(t *testing.T) {
 	}
 }
 
+func TestLimitsStatus(t *testing.T) {
+	_, root := seed(t)
+	resets := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
+	if _, code := run(t, "limits", "record", "--project="+root, "--session", "sess", "--kind", "five_hour", "--percent", "100", "--resets-at", resets); code != 0 {
+		t.Fatal("record")
+	}
+	out, code := run(t, "limits", "--json")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, out)
+	}
+	a := lines(t, out)[0]
+	for _, key := range []string{"account", "status", "unlocks_at", "updated_at", "windows"} {
+		if _, ok := a[key]; !ok {
+			t.Errorf("missing %q in %v", key, a)
+		}
+	}
+	if a["status"] != "limited" || a["unlocks_at"] != resets {
+		t.Fatalf("limited until the reset: %v", a)
+	}
+	w := a["windows"].([]any)[0].(map[string]any)
+	if w["kind"] != "five_hour" || w["full"] != true || w["pace"] != "full" {
+		t.Fatalf("window %v", w)
+	}
+	if text, code := run(t, "limits", "--no-color"); code != 0 || !strings.Contains(text, "limited until") {
+		t.Fatalf("human output: exit %d\n%s", code, text)
+	}
+	if _, code := run(t, "limits", "bogus"); code != 2 {
+		t.Fatal("an unknown subcommand is a usage error")
+	}
+}
+
 func TestDiffFrom(t *testing.T) {
 	p, root := seed(t)
 	first, _ := p.Events(store.Query{})

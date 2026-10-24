@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accounts screen in `pawprints ui` (key 5): per account, whether it is limited and until when, the 5-hour and weekly resets, the pace, and when it fills at that pace, plus a timeline of when each account unlocks. `pawprints limits` shows the same in the terminal, `limits --json` for scripts.
+- Prompts in the Sessions screen are split by day, so a session that runs past midnight or picks up days later reads in order.
 - Metrics: `pawprints metrics` and `pawprints ui`, a page on localhost with token rate, spikes, lines changed, usage limits, API cost, and breakdowns by project, session, model, account, and file, plus the sidebar's history with diffs, restore, undo, and pin. Live while Claude works.
 - The page keeps its place: the link carries the range, project, account, and the open session or file, so bookmarks and the back button work; live updates wait while a tooltip is open or text is selected. Sessions and Files have search and a sort dropdown, a file opens in a drawer beside the page with its change or every version, files outside every project fold into one row, stat tiles compare with the period before, Where it went splits API cost by model, each prompt shows its API cost, diffs open in the editor, and 1–4, /, [ and ] are keyboard shortcuts.
 - Editor command **Pawprints: Open Metrics** shows the page in a panel in the editor's colors; `o` in the TUI Stats pane opens it, and the pane gains token and line charts.

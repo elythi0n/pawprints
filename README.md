@@ -105,6 +105,8 @@ Costs are shown as **API cost**: what the tokens would cost at Anthropic's API p
 
 After updating from a version before metrics, run `pawprints usage backfill` once (or press **Fill in history** on the page) so older sessions get a timeline. It also fixes token totals older versions counted too high.
 
+The **Accounts** screen is for switching between Claude accounts: which one you can use right now, when a limited one unlocks, and when each fills at its current pace, for the 5-hour window and the week. A timeline shows every account's unlock times side by side. `pawprints limits` prints the same in the terminal. It needs [Whiskers](https://github.com/elythi0n/whiskers), which sends the readings.
+
 In the editor, the Pawprints sidebar shows the same: live sessions, every prompt with the files it changed (as a list or a folder tree, from the view's `…` menu), and one click to diff, restore, or undo.
 
 In Claude Code, `/pawprints` loads a skill that teaches Claude the CLI, and a pasted `pawprints:<id>` reference resolves to that exact version.
