@@ -1,0 +1,614 @@
+{
+  "name": "pawprints",
+  "displayName": "Pawprints",
+  "description": "Version history of every file Claude Code touches, as a sidebar over the pawprints binary.",
+  "version": "0.2.0",
+  "publisher": "elythion",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elythi0n/pawprints"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "history",
+    "diff",
+    "undo"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pawprints",
+          "title": "Pawprints",
+          "icon": "media/pawprints.svg"
+        }
+      ]
+    },
+    "views": {
+      "pawprints": [
+        {
+          "id": "pawprints.live",
+          "name": "Live",
+          "contextualTitle": "Pawprints"
+        },
+        {
+          "id": "pawprints.recent",
+          "name": "Recent",
+          "contextualTitle": "Pawprints"
+        },
+        {
+          "id": "pawprints.sessions",
+          "name": "Sessions",
+          "contextualTitle": "Pawprints"
+        },
+        {
+          "id": "pawprints.files",
+          "name": "Files",
+          "contextualTitle": "Pawprints"
+        },
+        {
+          "id": "pawprints.pins",
+          "name": "Pins",
+          "contextualTitle": "Pawprints"
+        },
+        {
+          "id": "pawprints.currentFile",
+          "name": "Current file",
+          "contextualTitle": "Pawprints"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pawprints.diffPrevious",
+        "title": "Diff Against Previous Version",
+        "category": "Pawprints",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "pawprints.diffCurrent",
+        "title": "Diff Against Current File",
+        "category": "Pawprints",
+        "icon": "$(diff-multiple)"
+      },
+      {
+        "command": "pawprints.compareSelected",
+        "title": "Compare Selected Versions",
+        "category": "Pawprints",
+        "icon": "$(compare-changes)"
+      },
+      {
+        "command": "pawprints.openVersion",
+        "title": "Open Version",
+        "category": "Pawprints",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "pawprints.openSession",
+        "title": "Show Session Changes",
+        "category": "Pawprints",
+        "icon": "$(diff-multiple)"
+      },
+      {
+        "command": "pawprints.openTurn",
+        "title": "Show Turn Changes",
+        "category": "Pawprints",
+        "icon": "$(diff-multiple)"
+      },
+      {
+        "command": "pawprints.restore",
+        "title": "Restore This Version",
+        "category": "Pawprints",
+        "icon": "$(history)"
+      },
+      {
+        "command": "pawprints.restoreBefore",
+        "title": "Restore Version Before This Edit",
+        "category": "Pawprints",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "pawprints.undoLast",
+        "title": "Undo Last Claude Edit",
+        "category": "Pawprints",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "pawprints.undoTurn",
+        "title": "Undo Turn",
+        "category": "Pawprints",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "pawprints.undoSession",
+        "title": "Undo Session",
+        "category": "Pawprints",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "pawprints.pin",
+        "title": "Pin Version",
+        "category": "Pawprints",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "pawprints.unpin",
+        "title": "Unpin Version",
+        "category": "Pawprints",
+        "icon": "$(pinned)"
+      },
+      {
+        "command": "pawprints.copyContent",
+        "title": "Copy Content",
+        "category": "Pawprints",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "pawprints.copySnippet",
+        "title": "Copy as Markdown Snippet",
+        "category": "Pawprints",
+        "icon": "$(markdown)"
+      },
+      {
+        "command": "pawprints.copyReference",
+        "title": "Copy Reference",
+        "category": "Pawprints",
+        "icon": "$(link)"
+      },
+      {
+        "command": "pawprints.sendToTerminal",
+        "title": "Send Reference to Terminal",
+        "category": "Pawprints",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "pawprints.clear",
+        "title": "Clear History...",
+        "category": "Pawprints",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "pawprints.clearSession",
+        "title": "Clear Session History",
+        "category": "Pawprints",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "pawprints.installHook",
+        "title": "Install Claude Code Hook",
+        "category": "Pawprints",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "pawprints.refresh",
+        "title": "Refresh",
+        "category": "Pawprints",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pawprints.showLastChange",
+        "title": "Show Last Claude Change in This File",
+        "category": "Pawprints",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "pawprints.openTui",
+        "title": "Open Terminal UI",
+        "category": "Pawprints",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "pawprints.toggleAllProjects",
+        "title": "Toggle Sessions From All Projects",
+        "category": "Pawprints",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "pawprints.openMetrics",
+        "title": "Open Metrics",
+        "category": "Pawprints",
+        "icon": "$(graph-line)"
+      },
+      {
+        "command": "pawprints.openStats",
+        "title": "Show Stats",
+        "category": "Pawprints",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "pawprints.revealSession",
+        "title": "Reveal Session",
+        "category": "Pawprints",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "pawprints.binaryNotFound",
+        "title": "Pawprints Binary Not Found",
+        "category": "Pawprints",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "pawprints.showOutput",
+        "title": "Show Output",
+        "category": "Pawprints",
+        "icon": "$(output)"
+      },
+      {
+        "command": "pawprints.viewAsTree",
+        "title": "View as Tree",
+        "category": "Pawprints",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "pawprints.viewAsList",
+        "title": "View as List",
+        "category": "Pawprints",
+        "icon": "$(list-flat)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pawprints.diffPrevious",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.diffCurrent",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.compareSelected",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.openVersion",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.openSession",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.openTurn",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.restore",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.restoreBefore",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.pin",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.unpin",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.copyContent",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.copySnippet",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.copyReference",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.sendToTerminal",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.clearSession",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.revealSession",
+          "when": "false"
+        },
+        {
+          "command": "pawprints.binaryNotFound",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "pawprints.openMetrics",
+          "when": "view =~ /^pawprints\\.(live|sessions)$/",
+          "group": "navigation@0"
+        },
+        {
+          "command": "pawprints.refresh",
+          "when": "view =~ /^pawprints\\./",
+          "group": "navigation@9"
+        },
+        {
+          "command": "pawprints.toggleAllProjects",
+          "when": "view == pawprints.live",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawprints.openTui",
+          "when": "view == pawprints.live",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pawprints.undoLast",
+          "when": "view == pawprints.recent",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawprints.clear",
+          "when": "view =~ /^pawprints\\.(live|recent|sessions)$/",
+          "group": "1_manage@1"
+        },
+        {
+          "command": "pawprints.openStats",
+          "when": "view =~ /^pawprints\\./",
+          "group": "1_manage@2"
+        },
+        {
+          "command": "pawprints.installHook",
+          "when": "view =~ /^pawprints\\./",
+          "group": "1_manage@3"
+        },
+        {
+          "command": "pawprints.showOutput",
+          "when": "view =~ /^pawprints\\./",
+          "group": "1_manage@4"
+        },
+        {
+          "command": "pawprints.viewAsTree",
+          "when": "view =~ /^pawprints\\.(live|sessions)$/ && pawprints.fileLayout != tree",
+          "group": "0_layout@1"
+        },
+        {
+          "command": "pawprints.viewAsList",
+          "when": "view =~ /^pawprints\\.(live|sessions)$/ && pawprints.fileLayout == tree",
+          "group": "0_layout@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pawprints.revealSession",
+          "when": "view == pawprints.live && viewItem == session",
+          "group": "inline@1"
+        },
+        {
+          "command": "pawprints.openSession",
+          "when": "view =~ /^pawprints\\./ && viewItem == session",
+          "group": "inline@2"
+        },
+        {
+          "command": "pawprints.openSession",
+          "when": "view =~ /^pawprints\\./ && viewItem == session",
+          "group": "1_view@1"
+        },
+        {
+          "command": "pawprints.undoSession",
+          "when": "view =~ /^pawprints\\./ && viewItem == session",
+          "group": "2_change@1"
+        },
+        {
+          "command": "pawprints.clearSession",
+          "when": "view =~ /^pawprints\\./ && viewItem == session",
+          "group": "3_manage@1"
+        },
+        {
+          "command": "pawprints.openTurn",
+          "when": "view =~ /^pawprints\\./ && viewItem == turn",
+          "group": "inline@1"
+        },
+        {
+          "command": "pawprints.openTurn",
+          "when": "view =~ /^pawprints\\./ && viewItem == turn",
+          "group": "1_view@1"
+        },
+        {
+          "command": "pawprints.undoTurn",
+          "when": "view =~ /^pawprints\\./ && viewItem == turn",
+          "group": "2_change@1"
+        },
+        {
+          "command": "pawprints.diffCurrent",
+          "when": "view =~ /^pawprints\\./ && viewItem == file",
+          "group": "inline@1"
+        },
+        {
+          "command": "pawprints.diffCurrent",
+          "when": "view =~ /^pawprints\\./ && viewItem == file",
+          "group": "1_view@1"
+        },
+        {
+          "command": "pawprints.diffPrevious",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "pawprints.diffCurrent",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "pawprints.diffPrevious",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "1_view@1"
+        },
+        {
+          "command": "pawprints.diffCurrent",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "1_view@2"
+        },
+        {
+          "command": "pawprints.compareSelected",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "1_view@3"
+        },
+        {
+          "command": "pawprints.openVersion",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "1_view@4"
+        },
+        {
+          "command": "pawprints.restore",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "2_change@1"
+        },
+        {
+          "command": "pawprints.restoreBefore",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "2_change@2"
+        },
+        {
+          "command": "pawprints.pin",
+          "when": "view =~ /^pawprints\\./ && viewItem == version",
+          "group": "3_pin@1"
+        },
+        {
+          "command": "pawprints.unpin",
+          "when": "view =~ /^pawprints\\./ && viewItem == pin",
+          "group": "3_pin@1"
+        },
+        {
+          "command": "pawprints.copyContent",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "4_copy@1"
+        },
+        {
+          "command": "pawprints.copySnippet",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "4_copy@2"
+        },
+        {
+          "command": "pawprints.copyReference",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "4_copy@3"
+        },
+        {
+          "command": "pawprints.sendToTerminal",
+          "when": "view =~ /^pawprints\\./ && viewItem =~ /^(version|pin)$/",
+          "group": "4_copy@4"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "pawprints.showLastChange",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Pawprints",
+      "properties": {
+        "pawprints.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the pawprints binary. Empty means look on PATH, then in the extension's global storage."
+        },
+        "pawprints.home": {
+          "type": "string",
+          "default": "",
+          "description": "Overrides the data directory (~/.pawprints). Passed as PAWPRINTS_HOME to the binary."
+        },
+        "pawprints.recentLimit": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "description": "Number of events loaded into the Recent and Files views."
+        },
+        "pawprints.showGutterMarks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mark lines changed by Claude's latest edit of the open file in the gutter."
+        },
+        "pawprints.showCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeLens above each hunk of Claude's latest edit of the open file."
+        },
+        "pawprints.autoInstallHook": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "always",
+            "never"
+          ],
+          "default": "ask",
+          "description": "What to do when the Claude Code hook is not installed."
+        },
+        "pawprints.showAllProjects": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show live sessions from every project, not only the open workspace folders."
+        },
+        "pawprints.fileVersions": {
+          "type": "string",
+          "enum": [
+            "combined",
+            "each"
+          ],
+          "default": "combined",
+          "enumDescriptions": [
+            "One row per file: a single diff from before the first edit to after the last",
+            "A folder per file with every version inside"
+          ],
+          "description": "How files under a prompt or session are listed in the Live and Sessions views. The Files view always lists every version."
+        },
+        "pawprints.fileLayout": {
+          "type": "string",
+          "enum": [
+            "list",
+            "tree"
+          ],
+          "default": "list",
+          "enumDescriptions": [
+            "One row per file",
+            "Files inside their folders, with file and line counts at every level"
+          ],
+          "description": "How files under a prompt or session are shown in the Live and Sessions views. Switch it from the view's ... menu with View as Tree or View as List."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src test",
+    "test": "tsc -p tsconfig.test.json && node --test \"out/test/**/*.test.js\"",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.1.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.12.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0"
+  },
+  "author": {
+    "name": "Marcos Raudkett (Elythion)"
+  }
+}

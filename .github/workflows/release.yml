@@ -1,0 +1,62 @@
+name: Release
+
+# Pushing a tag like v0.3.0 builds the binary and the editor extension and
+# publishes them as a GitHub release. install.sh and the plugin download from it.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      # The plugin downloads the version pinned in plugin.json, so the tag
+      # must match what scripts/stamp-version.sh committed.
+      - name: Check the tag matches the stamped versions
+        run: |
+          bare="${VERSION#v}"
+          for f in plugin/.claude-plugin/plugin.json extension/package.json; do
+            have=$(jq -r .version "$f")
+            if [ "$have" != "$bare" ]; then
+              echo "::error file=$f::version is $have, tag is $VERSION; run scripts/stamp-version.sh $VERSION and commit"
+              exit 1
+            fi
+          done
+
+      - name: Lint, test, and build
+        run: make check
+
+      - name: Build release artifacts
+        run: make release VERSION="$VERSION"
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="${VERSION#v}" '/^## / { if (p) exit; p = ($2 == v || $2 == "v" v); next } p' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ -s "$RUNNER_TEMP/notes.md" ]; then
+            echo "NOTES_FILE=$RUNNER_TEMP/notes.md" >> "$GITHUB_ENV"
+          else
+            echo "No '## ${VERSION#v}' section in CHANGELOG.md; GitHub will generate the notes"
+          fi
+
+      - name: Publish
+        run: make publish-only VERSION="$VERSION" NOTES_FILE="${NOTES_FILE:-}"

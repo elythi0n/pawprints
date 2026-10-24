@@ -1,0 +1,23 @@
+# Go
+/bin/
+/dist/
+*.test
+*.out
+
+# Extension
+extension/node_modules/
+extension/out/
+extension/dist/
+*.vsix
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+/pkg/
+/src/
+*.pkg.tar.zst
+/internal/setup/assets/*.vsix
+docs/

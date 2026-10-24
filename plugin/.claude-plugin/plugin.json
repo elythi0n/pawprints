@@ -1,0 +1,10 @@
+{
+  "name": "pawprints",
+  "displayName": "Pawprints",
+  "version": "0.2.0",
+  "description": "Version history of every file Claude touches: browse, diff, undo, and export what Claude changed",
+  "author": { "name": "Marcos Raudkett (Elythion)" },
+  "repository": "https://github.com/elythi0n/pawprints",
+  "license": "MIT",
+  "keywords": ["history", "diff", "undo", "sessions"]
+}

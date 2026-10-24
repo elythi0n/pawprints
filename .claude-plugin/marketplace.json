@@ -1,0 +1,12 @@
+{
+  "name": "pawprints",
+  "description": "Pawprints: version history of every file Claude touches",
+  "owner": { "name": "Marcos Raudkett (Elythion)" },
+  "plugins": [
+    {
+      "name": "pawprints",
+      "source": "./plugin",
+      "description": "Records every edit Claude makes; browse, diff, undo, and export it from the terminal UI, the editor extension, or /pawprints"
+    }
+  ]
+}
